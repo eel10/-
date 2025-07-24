@@ -1,0 +1,315 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>급식 정보 조회</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(45deg, #FF6B6B, #4ECDC4);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        input[type="date"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="date"]:focus {
+            outline: none;
+            border-color: #4ECDC4;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(45deg, #FF6B6B, #4ECDC4);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            font-style: italic;
+            color: #666;
+        }
+
+        .meal-info {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid #4ECDC4;
+        }
+
+        .meal-info h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .meal-item {
+            background: white;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .meal-item h4 {
+            color: #FF6B6B;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .meal-item ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .meal-item li {
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .meal-item li:last-child {
+            border-bottom: none;
+        }
+
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #c62828;
+            margin-top: 20px;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 30px;
+            color: #666;
+            font-style: italic;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🍽️ 급식 정보</h1>
+            <p>원하는 날짜의 급식 메뉴를 확인하세요</p>
+        </div>
+        
+        <div class="content">
+            <div class="input-group">
+                <label for="mealDate">날짜 선택:</label>
+                <input type="date" id="mealDate" required>
+            </div>
+            
+            <button class="btn" id="searchBtn" onclick="getMealInfo()">
+                급식 정보 조회
+            </button>
+            
+            <div id="loading" class="loading" style="display: none;">
+                급식 정보를 가져오는 중...
+            </div>
+            
+            <div id="result"></div>
+        </div>
+    </div>
+
+    <script>
+        // 오늘 날짜를 기본값으로 설정
+        document.getElementById('mealDate').valueAsDate = new Date();
+
+        async function getMealInfo() {
+            const dateInput = document.getElementById('mealDate');
+            const searchBtn = document.getElementById('searchBtn');
+            const loading = document.getElementById('loading');
+            const result = document.getElementById('result');
+            
+            if (!dateInput.value) {
+                alert('날짜를 선택해주세요.');
+                return;
+            }
+            
+            // 날짜 형식 변환 (YYYY-MM-DD -> YYYYMMDD)
+            const selectedDate = dateInput.value.replace(/-/g, '');
+            
+            // UI 상태 변경
+            searchBtn.disabled = true;
+            loading.style.display = 'block';
+            result.innerHTML = '';
+            
+            try {
+                // NEIS API 호출
+                const apiUrl = `https://open.neis.go.kr/hub/mealServiceDietInfo?ATPT_OFCDC_SC_CODE=J10&SD_SCHUL_CODE=7679111&MLSV_YMD=${selectedDate}`;
+                
+                const response = await fetch(apiUrl);
+                const xmlText = await response.text();
+                
+                // XML 파싱
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+                
+                // 에러 체크
+                const errorElement = xmlDoc.querySelector('RESULT CODE');
+                if (errorElement && errorElement.textContent !== 'INFO-000') {
+                    throw new Error('급식 정보를 찾을 수 없습니다.');
+                }
+                
+                // 급식 정보 추출
+                const rows = xmlDoc.querySelectorAll('row');
+                
+                if (rows.length === 0) {
+                    result.innerHTML = '<div class="no-data">해당 날짜에 급식 정보가 없습니다.</div>';
+                    return;
+                }
+                
+                let mealHtml = '<div class="meal-info"><h3>📅 ' + formatDate(dateInput.value) + ' 급식 정보</h3>';
+                
+                rows.forEach(row => {
+                    const mealType = row.querySelector('MMEAL_SC_NM')?.textContent || '급식';
+                    const dishNames = row.querySelector('DDISH_NM')?.textContent || '';
+                    const calories = row.querySelector('CAL_INFO')?.textContent || '';
+                    const nutrition = row.querySelector('NTR_INFO')?.textContent || '';
+                    
+                    mealHtml += '<div class="meal-item">';
+                    mealHtml += '<h4>' + mealType + '</h4>';
+                    
+                    if (dishNames) {
+                        const dishes = dishNames.split('<br/>').filter(dish => dish.trim());
+                        mealHtml += '<ul>';
+                        dishes.forEach(dish => {
+                            // 알레르기 정보 제거 (숫자와 점 제거)
+                            const cleanDish = dish.replace(/\d+\./g, '').trim();
+                            if (cleanDish) {
+                                mealHtml += '<li>' + cleanDish + '</li>';
+                            }
+                        });
+                        mealHtml += '</ul>';
+                    }
+                    
+                    if (calories) {
+                        mealHtml += '<p><strong>칼로리:</strong> ' + calories + '</p>';
+                    }
+                    
+                    mealHtml += '</div>';
+                });
+                
+                mealHtml += '</div>';
+                result.innerHTML = mealHtml;
+                
+            } catch (error) {
+                console.error('Error:', error);
+                result.innerHTML = '<div class="error">❌ ' + error.message + '<br>네트워크 연결을 확인하거나 다른 날짜를 시도해보세요.</div>';
+            } finally {
+                searchBtn.disabled = false;
+                loading.style.display = 'none';
+            }
+        }
+        
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            const year = date.getFullYear();
+            const month = date.getMonth() + 1;
+            const day = date.getDate();
+            const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+            const weekday = weekdays[date.getDay()];
+            
+            return `${year}년 ${month}월 ${day}일 (${weekday})`;
+        }
+        
+        // Enter 키로 검색
+        document.getElementById('mealDate').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                getMealInfo();
+            }
+        });
+    </script>
+</body>
+</html>
